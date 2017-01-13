@@ -1,4 +1,15 @@
-var _ = require("lodash");
+var _forEach = require("lodash.foreach");
+var _has = require("lodash.has");
+var _includes = require("lodash.includes");
+var _isEmpty = require("lodash.isempty");
+var _isFunction = require("lodash.isfunction");
+var _isNull = require("lodash.isnull");
+var _keys = require("lodash.keys");
+var _map = require("lodash.map");
+var _merge = require("lodash.merge");
+var _sortBy = require("lodash.sortby");
+var _take = require("lodash.take");
+var _takeRight = require("lodash.takeright");
 var async = require("async");
 var mkdirp = require("mkdirp");
 var forever = require("forever-monitor");
@@ -6,7 +17,7 @@ var Docker = require("dockerode");
 var docker = new Docker({socketPath: "/var/run/docker.sock"});
 
 function set_unloaded(core, container_id, application_name, should_respawn) {
-    commands.update_container(_.merge({
+    commands.update_container(_merge({
         core: core,
         application_name: application_name,
         container_id: container_id,
@@ -28,9 +39,9 @@ module.exports = {
         this.core = core;
 
         docker.version(function(err, info){
-            if(_.isNull(err)){
+            if(_isNull(err)){
                 var attributes = self.core.cluster.legiond.get_attributes();
-                var tags = _.merge({
+                var tags = _merge({
                     metadata: {
                         engines: {
                             docker: {
@@ -116,7 +127,7 @@ module.exports = {
 
         var node = this.core.cluster.legiond.get_attributes();
 
-        var pre_pull_middleware = _.map(self.middleware.pre_pull, function(middleware, middleware_name){
+        var pre_pull_middleware = _map(self.middleware.pre_pull, function(middleware, middleware_name){
             return function(fn){
                 middleware(options, fn);
             }
@@ -148,7 +159,7 @@ module.exports = {
 
                     options.start_args = self.start_args;
 
-                    var pre_start_middleware = _.map(self.middleware.pre_start, function(middleware, middleware_name){
+                    var pre_start_middleware = _map(self.middleware.pre_start, function(middleware, middleware_name){
                         return function(fn){
                             middleware(options, fn);
                         }
@@ -187,7 +198,7 @@ module.exports = {
         var node = this.core.cluster.legiond.get_attributes();
 
         docker.listContainers({all: true}, function(err, all_containers){
-            if(_.isNull(all_containers))
+            if(_isNull(all_containers))
                 all_containers = [];
 
             async.each(all_containers, function(container, fn){
@@ -199,11 +210,11 @@ module.exports = {
                     var host_port;
 
                     if(name.match(/-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/g)){
-                        var application_name = _.take(parts, parts.length - 5).join("-");
-                        var container_id = _.takeRight(parts, 5).join("-");
+                        var application_name = _take(parts, parts.length - 5).join("-");
+                        var container_id = _takeRight(parts, 5).join("-");
 
                         if(info.HostConfig.NetworkMode == "bridge"){
-                            _.each(info.HostConfig.PortBindings, function(bindings, binding){
+                            _forEach(info.HostConfig.PortBindings, function(bindings, binding){
                                 host_port = bindings[0].HostPort;
                                 binding = binding.split("/")[0];
                                 if(binding != host_port)
@@ -211,7 +222,7 @@ module.exports = {
                             });
                         }
                         else{
-                            _.each(info.Config.Env, function(env_var){
+                            _forEach(info.Config.Env, function(env_var){
                                 if(env_var.indexOf("PORT=") == 0)
                                     host_port = env_var.split("=")[1];
                             });
@@ -219,15 +230,15 @@ module.exports = {
 
                         if(!info.State.Running && !info.State.Restarting){
                             docker.getContainer(container.Id).remove(function(err){
-                                if(_.isNull(err))
+                                if(_isNull(err))
                                     self.core.loggers["containership.scheduler"].log("verbose", ["Cleaned up dead", application_name, "container:", container_id].join(" "));
                             });
                         }
-                        else if(!_.has(containers, container_id)){
+                        else if(!_has(containers, container_id)){
                             self.core.cluster.myriad.persistence.get([self.core.constants.myriad.CONTAINERS_PREFIX, application_name, container_id].join("::"), { local: false }, function(err, read_container){
                                 if(err){
                                     docker.getContainer(container.Id).remove({force: true}, function(err){
-                                        if(_.isNull(err))
+                                        if(_isNull(err))
                                             self.core.loggers["containership.scheduler"].log("verbose", ["Cleaned up untracked", application_name, "container:", container_id].join(" "));
                                     });
                                 }
@@ -268,7 +279,7 @@ module.exports = {
 
                                         try{
                                             read_container = JSON.parse(read_container);
-                                            if(_.has(read_container.tags, "host")){
+                                            if(_has(read_container.tags, "host")){
                                                 config.tags = read_container.tags;
                                                 config.tags.host = node.id;
                                             }
@@ -278,7 +289,7 @@ module.exports = {
                                         commands.update_container(config, function(err){
                                             if(err){
                                                 docker.getContainer(container.Id).remove(function(err){
-                                                    if(_.isNull(err))
+                                                    if(_isNull(err))
                                                         self.core.loggers["containership.scheduler"].log("verbose", ["Cleaned up dead", application_name, "container:", container_id].join(" "));
                                                 });
                                             }
@@ -325,7 +336,7 @@ module.exports = {
                                     }, function(err){
                                         if(err){
                                             docker.getContainer(container.Id).remove(function(err){
-                                                if(_.isNull(err))
+                                                if(_isNull(err))
                                                     self.core.loggers["containership.scheduler"].log("verbose", ["Cleaned up dead", application_name, "container:", container_id].join(" "));
                                             });
                                         }
@@ -386,13 +397,13 @@ var commands = {
             ["--HostConfig.Privileged", options.privileged].join("=")
         ]
 
-        if(!_.isEmpty(options.command))
+        if(!_isEmpty(options.command))
             args.push(["--Cmd", options.command].join("="));
 
-        if(!_.isEmpty(options.volumes)){
+        if(!_isEmpty(options.volumes)){
             args.push("--HostConfig.Binds");
 
-            var volumes = _.map(options.volumes, function(volume){
+            var volumes = _map(options.volumes, function(volume){
                 var volumeArg = [volume.host, volume.container].join(":");
 
                 if (volume.propogation) {
@@ -405,23 +416,23 @@ var commands = {
             args.push(volumes.join(" "));
         }
 
-        _.each(options.start_args, function(val, key){
+        _forEach(options.start_args, function(val, key){
             args.push(["--", key].join(""));
-            if(_.isFunction(val))
+            if(_isFunction(val))
                 args.push(val(options));
             else
                 args.push(val);
         });
 
-        var keys = _.sortBy(_.keys(options.env_vars), function(key){
+        var keys = _sortBy(_keys(options.env_vars), function(key){
             return -key.length;
         });
 
-        _.each(options.env_vars, function(val, key){
+        _forEach(options.env_vars, function(val, key){
             args.push("--Env");
             val = val.toString();
 
-            _.each(keys, function(_key){
+            _forEach(keys, function(_key){
                 if(val.indexOf(["$", _key].join("")) != -1)
                     val = val.replace(["$", _key].join(""), options.env_vars[_key]);
             });
@@ -429,7 +440,7 @@ var commands = {
             args.push([key, val].join("="));
         });
 
-        if(_.has(options, "container_port") && !_.isNull(options.container_port)){
+        if(_has(options, "container_port") && !_isNull(options.container_port)){
             args.push("--Env");
             args.push(["PORT", options.container_port].join("="));
             args.push("--Env");
@@ -512,12 +523,12 @@ var commands = {
 
             containers[options.container_id].stop();
 
-            if(_.includes(containers[options.container_id].args, "wait")){
+            if(_includes(containers[options.container_id].args, "wait")){
                 docker.listContainers({all: true}, function(err, all_containers){
-                    if(_.isNull(all_containers))
+                    if(_isNull(all_containers))
                         all_containers = [];
 
-                    _.each(all_containers, function(container){
+                    _forEach(all_containers, function(container){
                         docker.getContainer(container.Id).inspect(function(err, info){
                             var name = container.Names[0].slice(1);
                             if(name == [options.application, options.container_id].join("-"))
@@ -531,7 +542,7 @@ var commands = {
 
     // update container status
     update_container: function(options, fn){
-        if(_.has(options, "respawn") && !options.respawn){
+        if(_has(options, "respawn") && !options.respawn){
             this.delete_container({
                 application_name: options.application_name,
                 container_id: options.container_id,
@@ -547,22 +558,22 @@ var commands = {
                     container = JSON.parse(container);
                     container.status = options.status;
 
-                    if(_.has(options, "host"))
+                    if(_has(options, "host"))
                         container.host = options.host;
 
-                    if(_.has(options, "start_time"))
+                    if(_has(options, "start_time"))
                         container.start_time = options.start_time;
 
-                    if(_.has(options, "tags"))
+                    if(_has(options, "tags"))
                         container.tags = options.tags;
 
-                    if(_.has(options, "engine"))
+                    if(_has(options, "engine"))
                         container.engine = options.engine;
 
-                    if(_.has(options, "host_port"))
+                    if(_has(options, "host_port"))
                         container.host_port = options.host_port;
 
-                    if(_.has(options, "container_port"))
+                    if(_has(options, "container_port"))
                         container.container_port = options.container_port;
 
                     if(options.status == "unloaded" && container.random_host_port)

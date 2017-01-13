@@ -1,10 +1,10 @@
-var _ = require("lodash");
+var _defaults = require('lodash.defaults');
 
 // define ContainershipScheduler
 function ContainershipScheduler(core){}
 
 ContainershipScheduler.prototype.load_options = function(options){
-    this.options = _.defaults(options || {}, {
+    this.options = _defaults(options || {}, {
         loadbalancer: {
             min_port: 10000,
             max_port: 11023

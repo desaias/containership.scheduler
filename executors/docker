@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-var _ = require("lodash");
+var _isUndefined = require("lodash.isundefined");
+var _has = require("lodash.has");
+var _forEach = require("lodash.foreach")
 var flat = require("flat");
 var nomnom = require("nomnom");
 var Docker = require("dockerode");
@@ -46,13 +48,13 @@ nomnom.command("start").options({
 }).callback(function(options){
     var opts = flat.unflatten(options);
 
-    if(!_.isUndefined(opts.Cmd))
+    if(!_isUndefined(opts.Cmd))
         opts.Cmd = opts.Cmd.split(" ");
 
-    if(_.has(opts.HostConfig, "Binds")){
+    if(_has(opts.HostConfig, "Binds")){
         opts.HostConfig.Binds = opts.HostConfig.Binds.split(" ");
         opts.Volumes = {};
-        _.each(opts.HostConfig.Binds, function(bind){
+        _forEach(opts.HostConfig.Binds, function(bind){
             var container_bind = bind.split(":")[1];
             opts.Volumes[container_bind] = {};
         });
